@@ -1,23 +1,33 @@
+# Base image with Node.js
 FROM node:20-alpine
 
+# Install dependencies
+RUN apk add --no-cache openssl
+
+# Set working directory
 WORKDIR /app
 
-RUN npm install -g pnpm
+# Install pnpm globally
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-COPY package.json          .
-COPY package-lock.json     .
+# Copy only the package manager files to leverage Docker layer caching
+COPY pnpm-lock.yaml ./
+COPY package.json ./
 
-RUN npm install --frozen-lockfile
+# Install dependencies
+RUN pnpm install
 
-COPY src                  ./src
-COPY prisma               ./prisma
-COPY tsconfig.json        .
-COPY .env                 .
+# Copy the rest of the application
+COPY . .
 
-RUN npx prisma generate
+# Generate Prisma client
+RUN pnpm prisma generate
 
+# Build the NestJS app
 RUN pnpm build
 
-EXPOSE ${PORT}
+# Expose the app port
+EXPOSE 3000
 
+# Start the application
 CMD ["pnpm", "start:prod"]
